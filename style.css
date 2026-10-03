@@ -1,0 +1,194 @@
+/* ==============================================================================
+   土庫驛可可莊園 (Tukuyi Cocoa) - AI 行銷企劃工作台 品牌視覺主題樣式
+   CI/VI 核心色系：深可可棕 (#3B2314)、典雅香檳金 (#D4AF37)、奶霜白 (#FDFBF7)
+   ============================================================================== */
+
+:root {
+  --tukuyi-cocoa: #3B2314;
+  --tukuyi-dark-bg: #180F0A;
+  --tukuyi-gold: #D4AF37;
+  --tukuyi-gold-hover: #E5C158;
+  --tukuyi-terracotta: #8C4A32;
+  --tukuyi-cream: #FDFBF7;
+  --tukuyi-card-bg: #26160E;
+  --tukuyi-border: #4D3121;
+}
+
+/* 全域頁面背景與字型微調 */
+.stApp {
+  background-color: var(--tukuyi-dark-bg);
+  color: #ECE7E1;
+  font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", "Segoe UI", sans-serif;
+}
+
+/* 頂部品牌 Banner */
+.brand-header-banner {
+  background: linear-gradient(135deg, #3B2314 0%, #20120A 100%);
+  border: 1px solid var(--tukuyi-gold);
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand-title {
+  color: var(--tukuyi-gold);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-subtitle {
+  color: #C8BFB6;
+  font-size: 13.5px;
+  margin-top: 6px;
+}
+
+.brand-badge {
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid var(--tukuyi-gold);
+  color: var(--tukuyi-gold);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* 品牌資訊卡片 */
+.tukuyi-card {
+  background: var(--tukuyi-card-bg);
+  border: 1px solid var(--tukuyi-border);
+  border-radius: 10px;
+  padding: 18px 22px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease-in-out;
+}
+
+.tukuyi-card:hover {
+  border-color: var(--tukuyi-gold);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(212, 175, 55, 0.15);
+}
+
+.card-heading {
+  color: var(--tukuyi-gold);
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 數據指針展示卡 (Metric Block) */
+.metric-container {
+  display: flex;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.metric-card {
+  flex: 1;
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px dashed rgba(212, 175, 55, 0.35);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+}
+
+.metric-num {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--tukuyi-gold);
+  margin-bottom: 4px;
+}
+
+.metric-text {
+  font-size: 12px;
+  color: #B5A89C;
+}
+
+/* 提示詞展示與複製框 */
+.prompt-box {
+  background: #140C07;
+  border-left: 4px solid var(--tukuyi-gold);
+  border-radius: 4px;
+  padding: 14px 18px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 13px;
+  color: #F0ECE6;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 12px 0;
+}
+
+/* 受眾標籤色 */
+.badge-boss {
+  background-color: #4A1E1E;
+  color: #FFB3B3;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.badge-procurement {
+  background-color: #1E3A4A;
+  color: #B3E0FF;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.badge-partner {
+  background-color: #3C3518;
+  color: #FFECA1;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+/* 自訂按鈕強化 */
+div.stButton > button {
+  background: linear-gradient(135deg, var(--tukuyi-gold) 0%, #B89025 100%) !important;
+  color: #1E120A !important;
+  font-weight: 700 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 20px !important;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25) !important;
+  transition: all 0.2s ease !important;
+}
+
+div.stButton > button:hover {
+  background: linear-gradient(135deg, var(--tukuyi-gold-hover) 0%, #CFA530 100%) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.4) !important;
+}
+
+/* 頁籤自訂 */
+.stTabs [data-baseweb="tab-list"] {
+  gap: 8px;
+}
+
+.stTabs [data-baseweb="tab"] {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px 8px 0 0;
+  color: #B5A89C;
+  font-weight: 600;
+  padding: 10px 18px;
+}
+
+.stTabs [aria-selected="true"] {
+  background-color: var(--tukuyi-card-bg) !important;
+  color: var(--tukuyi-gold) !important;
+  border-bottom: 2px solid var(--tukuyi-gold) !important;
+}

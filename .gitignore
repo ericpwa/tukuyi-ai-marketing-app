@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env
+.DS_Store
+*.tmp
+output_proposal.pptx
+test_presentation.pptx

@@ -1,6 +1,7 @@
 """
-匯出輔助函式庫 (Export Helpers)
+匯出輔助函式庫 (Export Helpers v2.1)
 支援 Markdown、JSON、HTML 互動式簡報、CSV 數據下載與 SHA-256 數位指紋產生
+深度整合 STP、4P、P&L 損益、Persona、同理心地圖與 NSDB 分析模型
 所有權人：BOSS / 院長 / Eric 潘穩安博士
 """
 
@@ -18,7 +19,7 @@ def compute_sha256(content: str) -> str:
 def export_proposal_json(data: dict) -> str:
     """匯出結構化 JSON 字串"""
     export_payload = {
-        "document_type": "tukuyi_marketing_proposal",
+        "document_type": "tukuyi_marketing_proposal_v2.1",
         "system_owner": SYSTEM_OWNERSHIP["owner"],
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "brand": TUKUYI_BRAND_IDENTITY["brand_name"],
@@ -31,7 +32,7 @@ def export_proposal_markdown(data: dict) -> str:
     """匯出符合 GitHub Flavored Markdown 規範之完整企劃書"""
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     title = data.get("title", "土庫驛 B2B 節慶企業禮盒行銷企劃案")
-    audience = data.get("audience_name", "企業客戶採購與福委會")
+    audience = data.get("audience_name", "企業客戶提案 (福委 / 總務 / 採購)")
     festival = data.get("festival", "聖誕節年終感恩")
     
     # 預先計算內文指紋
@@ -65,14 +66,26 @@ confidentiality: "土庫驛內部培訓與實務演練專用 • 嚴禁未經授
 
 ---
 
-## 🎯 二、 STP 市場定位策略
+## 🏛️ 二、 Phase 01 品牌底蘊與 P&L 財務損益結構
+* **品牌願景與初心**：{data.get("brand_origin", "創辦人為失智父親返鄉打造 Tree-to-Bar 可可創生莊園，做純淨無添加巧克力給父親吃。")}
+* **核心工藝**：{data.get("brand_craft", "13道工序慢磨、100%天然可可脂、零反式脂肪、在地小農契作。")}
+* **P&L 損益與營收指標**：
+  - 專案營收規模：`{data.get("kpi_revenue", "NT$ 2,200,000")}`
+  - 目標銷售盒數：`{data.get("kpi_boxes", "2,000 盒")}`
+  - 預估毛利率：`{data.get("kpi_margin", "57.2%")}`
+  - 預估營業淨利率：`{data.get("pnl_net_margin", "38.5%")}`
+  - 關鍵成本結構：{data.get("pnl_notes", "原物料與工廠慢磨製程佔 42.8%，客製燙金腰封與溫控物流佔 11.5%，營業費用佔 7.2%。")}
+
+---
+
+## 🎯 三、 產品市場定位策略 (STP)
 * **市場區隔 (Market Segmentation)**：{data.get("stp_s", "以重視 ESG 永續、員工健康、高美學質感的科技半導體與外商金融企業為核心。")}
 * **目標市場 (Targeting)**：{data.get("stp_t", "鎖定客單價 $800 - $1,500 區間之年終福委及 VIP 外部客戶禮盒。")}
 * **品牌定位 (Positioning)**：{data.get("stp_p", "『雲林在地創生 x 米其林級頂級可可』之尊榮商務賀禮。")}
 
 ---
 
-## 📦 三、 4P 行銷組合與產品搭售規劃
+## 📦 四、 4P 行銷組合落地策略
 * **產品策略 (Product)**：{data.get("p_product", "85% 生巧克力 + 小山園抹茶生巧 + 莊園可可豆茶包，冷藏常溫彈性配搭。")}
 * **定價策略 (Price)**：{data.get("p_price", "三階梯定價：分享款 $699 / 尊爵款 $1,099 / 旗艦奢華款 $1,680。")}
 * **通路策略 (Place)**：{data.get("p_place", "專人 B2B 顧問一對一試吃配送、企業專屬線上大宗試算下單頁面。")}
@@ -80,25 +93,21 @@ confidentiality: "土庫驛內部培訓與實務演練專用 • 嚴禁未經授
 
 ---
 
-## 👥 四、 受眾痛點說服話術矩陣
-{data.get("audience_pitch", "針對福委會與採購窗口，主打『長官有面子、同仁零負擔、行政零客訴』，提供常溫低溫混和配送與彈性發票請款服務。")}
+## 👥 五、 Phase 02 目標受眾 Persona、同理心與 NSDB 說服架構
+* **Persona 角色模型**：{data.get("persona_desc", "科技業福委主委與行政總務，注重同仁口碑與預算防線。")}
+* **同理心地圖痛點 (Empathy Map)**：{data.get("empathy_pains", "員工嫌傳統月餅油膩熱量高；冷藏保存困難且公司冰箱爆滿；預算死板卡在特定區間。")}
+* **NSDB 說服切角矩陣**：
+  - **Need (受眾深層需求)**：{data.get("nsdb_n", "健康無負擔、送禮有面子、行政省事無客訴。")}
+  - **Solution (核心解方)**：{data.get("nsdb_s", "米其林級無糖黑巧 + 莊園可可豆茶，搭配常溫低溫雙軌配送。")}
+  - **Differentiation (獨特差異)**：{data.get("nsdb_d", "Tree-to-Bar 13道工序慢磨、創生孝心故事、免費客製燙金。")}
+  - **Benefit (綜合效益)**：{data.get("nsdb_b", "同仁滿意度 95% 以上，減輕總務 60% 配送負擔，提升企業 ESG 永續形象。")}
 
 ---
 
-## 🎨 五、 品牌視覺約束與生圖提示詞 (CI/VI & ChatGPT Images 2.5)
-* **主色約束**：深可可棕 `#3B2314`、香檳金 `#D4AF37`、奶霜白 `#FDFBF7`
-* **商品攝影生圖提示詞**：
+## 🎨 六、 Phase 03 視覺生圖提示詞 (ChatGPT & Gemini 通用)
 ```text
-{data.get("image_prompt", "Commercial luxury food photography of Tukuyi Cocoa gift box in deep cocoa brown and gold stamping.")}
+{data.get("image_prompt", "Commercial luxury food photography of Tukuyi Cocoa gift box.")}
 ```
-
----
-
-## 📊 六、 預期財務與商業效益
-* **預期目標銷售盒數**：{data.get("kpi_boxes", "1,500 ~ 2,000 盒")}
-* **預期專案營業額**：{data.get("kpi_revenue", "NT$ 1,800,000 ~ 2,200,000")}
-* **預估毛利率**：{data.get("kpi_margin", "56.5%")}
-* **滿意度目標**：{data.get("kpi_satisfaction", "4.8 分以上 / 回購率 40%")}
 
 ---
 *本報告由「土庫驛 AI 行銷企劃工作台」自動生成，所有權人：Eric 潘穩安博士，對齊土庫驛品牌識別指南 (CI/VI)*
@@ -121,7 +130,6 @@ def generate_standalone_html_deck(data: dict) -> str:
     """產生精美、可離線獨立運行的土庫驛品牌簡報 (HTML 互動投影片)"""
     title = data.get("title", "土庫驛 2026 B2B 企業禮盒提案簡報")
     audience = data.get("audience_name", "企業客戶提案 (福委 / 總務 / 採購)")
-    festival = data.get("festival", "聖誕年終感恩禮盒")
     summary = data.get("summary", "以 Tree-to-Bar 頂級生巧克力與可可豆茶，為企業客戶帶來極致奢華且健康無負擔的年終賀禮。")
 
     html = f"""<!DOCTYPE html>
@@ -282,11 +290,12 @@ def generate_standalone_html_deck(data: dict) -> str:
         </div>
 
         <div class="card">
-          <div class="card-title">🎁 4P 行銷組合重點</div>
+          <div class="card-title">💎 NSDB 說服核心架構</div>
           <div class="card-text">
-            <strong>產品組合：</strong> {data.get("p_product", "85% 生巧 + 抹茶生巧 + 可可豆茶")}<br><br>
-            <strong>價格階梯：</strong> {data.get("p_price", "三階彈性定價 $699 / $1,099 / $1,680")}<br><br>
-            <strong>服務加值：</strong> {data.get("p_promotion", "客製燙金腰封、冷藏常溫分流直送、企業試吃品鑑")}
+            <strong>Need 需求：</strong> {data.get("nsdb_n", "兼顧星級大氣面子與 0 反式脂肪健康")}<br><br>
+            <strong>Solution 解方：</strong> {data.get("nsdb_s", "85% 生巧 + 莊園可可茶常溫冷藏雙軌")}<br><br>
+            <strong>Differentiation 差異：</strong> {data.get("nsdb_d", "13道工序慢磨 x 創生孝心故事 x 客製腰封")}<br><br>
+            <strong>Benefit 效益：</strong> {data.get("nsdb_b", "同仁滿意度 95% 以上，行政零負擔")}
           </div>
         </div>
       </div>

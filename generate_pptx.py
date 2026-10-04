@@ -1,6 +1,8 @@
 """
-土庫驛可可莊園 - 商業提案 PPTX 生成引擎
+土庫驛可可莊園 - 商業提案 PPTX 生成引擎 (v2.1)
 嚴格遵循品牌 CI/VI 指南：16:9 比例、深可可棕 (#3B2314)、香檳金 (#D4AF37)、奶霜白 (#FDFBF7)
+整合 STP、4P、P&L 財務分析與 NSDB (Need, Solution, Differentiation, Benefit) 說服模型
+所有權人：BOSS / 院長 / Eric 潘穩安博士
 """
 
 import os
@@ -27,7 +29,7 @@ COLOR_BORDER = RGBColor(90, 58, 37)           # 邊框裝飾色
 
 def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
     """
-    建構土庫驛專屬 16:9 商業提案簡報
+    建構土庫驛專屬 16:9 商業提案簡報 (包含 NSDB 與 P&L 結構)
     """
     if not HAS_PPTX:
         print("[WARN] python-pptx 未安裝，無法生成原生 .pptx 簡報。")
@@ -83,7 +85,6 @@ def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
     slide1 = prs.slides.add_slide(blank_layout)
     set_background(slide1, COLOR_COCOA_DARK)
 
-    # 裝飾卡片
     add_card(slide1, Inches(1.0), Inches(1.0), Inches(11.333), Inches(5.5), bg_color=COLOR_COCOA_CARD, border_color=COLOR_GOLD)
 
     box = slide1.shapes.add_textbox(Inches(1.5), Inches(1.6), Inches(10.333), Inches(3.8))
@@ -91,8 +92,8 @@ def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
     tf.word_wrap = True
 
     p0 = tf.paragraphs[0]
-    p0.text = "TUKUYI COCOA ESTATE • B2B CORPORATE PROPOSAL"
-    p0.font.size = Pt(13)
+    p0.text = "TUKUYI COCOA ESTATE • B2B CORPORATE PROPOSAL • 所有權人：Eric 潘穩安博士"
+    p0.font.size = Pt(12)
     p0.font.color.rgb = COLOR_GOLD
     p0.font.bold = True
 
@@ -123,7 +124,6 @@ def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
     set_background(slide2, COLOR_COCOA_DARK)
     add_header(slide2, "痛點突破與提案核心 (SCQA)", "突破傳統送禮同質化：健康尊榮與 ESG 永續新解答")
 
-    # 左卡片：傳統痛點
     add_card(slide2, Inches(0.8), Inches(1.8), Inches(5.6), Inches(4.8))
     c1_box = slide2.shapes.add_textbox(Inches(1.1), Inches(2.0), Inches(5.0), Inches(4.3))
     tf = c1_box.text_frame
@@ -146,7 +146,6 @@ def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
         p.font.color.rgb = COLOR_CREAM
         p.space_before = Pt(12)
 
-    # 右卡片：土庫驛解答
     add_card(slide2, Inches(6.8), Inches(1.8), Inches(5.6), Inches(4.8), border_color=COLOR_GOLD)
     c2_box = slide2.shapes.add_textbox(Inches(7.1), Inches(2.0), Inches(5.0), Inches(4.3))
     tf2 = c2_box.text_frame
@@ -219,11 +218,49 @@ def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
     p.space_before = Pt(14)
 
     # -------------------------------------------------------------
-    # SLIDE 4: 4P 行銷組合與產品亮點
+    # SLIDE 4: NSDB 說服架構 (Need, Solution, Differentiation, Benefit)
     # -------------------------------------------------------------
     slide4 = prs.slides.add_slide(blank_layout)
     set_background(slide4, COLOR_COCOA_DARK)
-    add_header(slide4, "4P 行銷組合", "米其林職人配搭、彈性階梯預算與尊榮客製服務")
+    add_header(slide4, "Phase 02 說服策略 (NSDB)", "直擊客戶深層痛點：建構無法拒絕的價值主張")
+
+    nsdb_items = [
+        ("N - Need 痛點需求", proposal_data.get("nsdb_n", "需要兼具星級大氣面子、同仁零熱量負擔且行政省事無客訴之禮盒。")),
+        ("S - Solution 核心解方", proposal_data.get("nsdb_s", "85% 生巧克力搭配莊園可可豆茶，提供『常溫/低溫雙軌分流配送』方案。")),
+        ("D - Differentiation 獨特差異", proposal_data.get("nsdb_d", "Tree-to-Bar 13道工序慢磨、創生孝心故事、免費客製企業燙金腰封與雷雕。")),
+        ("B - Benefit 效益實現", proposal_data.get("nsdb_b", "同仁滿意度 95% 以上，減輕總務 60% 配送負擔，提升企業 ESG 永續評鑑。"))
+    ]
+
+    coords_nsdb = [
+        (Inches(0.8), Inches(1.8)),
+        (Inches(6.8), Inches(1.8)),
+        (Inches(0.8), Inches(4.3)),
+        (Inches(6.8), Inches(4.3))
+    ]
+
+    for idx, (title_text, desc_text) in enumerate(nsdb_items):
+        x, y = coords_nsdb[idx]
+        add_card(slide4, x, y, Inches(5.6), Inches(2.2), border_color=COLOR_GOLD)
+        tb = slide4.shapes.add_textbox(x + Inches(0.2), y + Inches(0.2), Inches(5.2), Inches(1.8))
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = f"◆ {title_text}"
+        p.font.size = Pt(15)
+        p.font.bold = True
+        p.font.color.rgb = COLOR_GOLD
+        p2 = tf.add_paragraph()
+        p2.text = desc_text
+        p2.font.size = Pt(12)
+        p2.font.color.rgb = COLOR_CREAM
+        p2.space_before = Pt(8)
+
+    # -------------------------------------------------------------
+    # SLIDE 5: 4P 行銷組合與產品亮點
+    # -------------------------------------------------------------
+    slide5 = prs.slides.add_slide(blank_layout)
+    set_background(slide5, COLOR_COCOA_DARK)
+    add_header(slide5, "4P 行銷組合落地", "米其林職人配搭、彈性階梯預算與尊榮客製服務")
 
     grid_items = [
         ("Product 產品組合", proposal_data.get("p_product", "85% 生巧 + 抹茶生巧 + 莊園可可豆茶包")),
@@ -232,17 +269,10 @@ def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
         ("Promotion 促銷禮遇", proposal_data.get("p_promotion", "早鳥滿額免運溫控、免費客製燙金腰封與企業 Logo 雷雕、ESG 倡議小卡"))
     ]
 
-    coords = [
-        (Inches(0.8), Inches(1.8)),
-        (Inches(6.8), Inches(1.8)),
-        (Inches(0.8), Inches(4.3)),
-        (Inches(6.8), Inches(4.3))
-    ]
-
     for idx, (title_text, desc_text) in enumerate(grid_items):
-        x, y = coords[idx]
-        add_card(slide4, x, y, Inches(5.6), Inches(2.2))
-        tb = slide4.shapes.add_textbox(x + Inches(0.2), y + Inches(0.2), Inches(5.2), Inches(1.8))
+        x, y = coords_nsdb[idx]
+        add_card(slide5, x, y, Inches(5.6), Inches(2.2))
+        tb = slide5.shapes.add_textbox(x + Inches(0.2), y + Inches(0.2), Inches(5.2), Inches(1.8))
         tf = tb.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
@@ -257,24 +287,23 @@ def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
         p2.space_before = Pt(8)
 
     # -------------------------------------------------------------
-    # SLIDE 5: 財務效益與行動呼籲 (CTA)
+    # SLIDE 6: 財務 P&L 效益與行動呼籲 (CTA)
     # -------------------------------------------------------------
-    slide5 = prs.slides.add_slide(blank_layout)
-    set_background(slide5, COLOR_COCOA_DARK)
-    add_header(slide5, "預期財務效益與早鳥行動呼籲", "創造同仁超高滿意度，達成企業 ESG 採購雙贏")
+    slide6 = prs.slides.add_slide(blank_layout)
+    set_background(slide6, COLOR_COCOA_DARK)
+    add_header(slide6, "財務 P&L 效益與早鳥行動呼籲", "創造同仁超高滿意度，達成企業 ESG 採購雙贏")
 
-    # 4 個指標大卡片
     metrics = [
         ("目標盒數", proposal_data.get("kpi_boxes", "2,000 盒")),
         ("營收規模", proposal_data.get("kpi_revenue", "NT$ 2.2M")),
         ("預估毛利率", proposal_data.get("kpi_margin", "56.5%")),
-        ("目標滿意度", proposal_data.get("kpi_satisfaction", "4.8 ★"))
+        ("預估淨利率", proposal_data.get("pnl_net_margin", "38.5%"))
     ]
 
     for i, (m_lbl, m_val) in enumerate(metrics):
         mx = Inches(0.8 + i * 2.95)
-        add_card(slide5, mx, Inches(1.8), Inches(2.75), Inches(2.0), border_color=COLOR_GOLD)
-        tb = slide5.shapes.add_textbox(mx + Inches(0.1), Inches(2.1), Inches(2.55), Inches(1.4))
+        add_card(slide6, mx, Inches(1.8), Inches(2.75), Inches(2.0), border_color=COLOR_GOLD)
+        tb = slide6.shapes.add_textbox(mx + Inches(0.1), Inches(2.1), Inches(2.55), Inches(1.4))
         tf = tb.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
@@ -290,9 +319,8 @@ def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
         p2.alignment = PP_ALIGN.CENTER
         p2.space_before = Pt(8)
 
-    # 底部 Call to Action 卡片
-    add_card(slide5, Inches(0.8), Inches(4.2), Inches(11.6), Inches(2.4), bg_color=COLOR_COCOA_CARD, border_color=COLOR_GOLD)
-    cta_box = slide5.shapes.add_textbox(Inches(1.2), Inches(4.4), Inches(10.8), Inches(2.0))
+    add_card(slide6, Inches(0.8), Inches(4.2), Inches(11.6), Inches(2.4), bg_color=COLOR_COCOA_CARD, border_color=COLOR_GOLD)
+    cta_box = slide6.shapes.add_textbox(Inches(1.2), Inches(4.4), Inches(10.8), Inches(2.0))
     tf = cta_box.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
@@ -311,9 +339,8 @@ def build_tukuyi_pptx(proposal_data: dict, output_path: str) -> bool:
     p2.font.color.rgb = COLOR_CREAM
     p2.space_before = Pt(6)
 
-    # 儲存投影片
     prs.save(output_path)
-    print(f"[SUCCESS] 土庫驛品牌 PPTX 簡報已生成至：{output_path}")
+    print(f"[SUCCESS] 土庫驛品牌 PPTX 簡報 (含 NSDB) 已生成至：{output_path}")
     return True
 
 if __name__ == "__main__":
@@ -329,9 +356,14 @@ if __name__ == "__main__":
         "p_price": "三階梯定價：分享款 $699 / 尊爵款 $1,099 / 旗艦奢華款 $1,680。",
         "p_place": "專人 B2B 顧問一對一試吃配送、企業專屬線上大宗試算下單頁面。",
         "p_promotion": "早鳥滿額免運溫控、免費客製燙金腰封與企業 Logo 雷雕、附贈地方創生小卡。",
+        "nsdb_n": "需要兼顧星級大氣面子、同仁零熱量負擔且行政省事無客訴之禮盒。",
+        "nsdb_s": "85% 生巧克力搭配莊園可可豆茶，提供『常溫/低溫雙軌分流配送』方案。",
+        "nsdb_d": "Tree-to-Bar 13道工序慢磨、創生孝心故事、免費客製企業燙金腰封與雷雕。",
+        "nsdb_b": "同仁滿意度 95% 以上，減輕總務 60% 配送負擔，提升企業 ESG 永續評鑑。",
         "kpi_boxes": "2,000 盒",
         "kpi_revenue": "NT$ 2,200,000",
         "kpi_margin": "56.5%",
+        "pnl_net_margin": "38.5%",
         "kpi_satisfaction": "4.8 ★"
     }
     test_out = os.path.join(os.path.dirname(__file__), "test_presentation.pptx")

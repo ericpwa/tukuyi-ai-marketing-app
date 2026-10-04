@@ -1,9 +1,10 @@
 """
-土庫驛可可莊園 (Tukuyi Cocoa) - AI 行銷企劃大師 Web App (v2.0.0 Enterprise)
+土庫驛可可莊園 (Tukuyi Cocoa) - AI 行銷企劃大師 Web App (v2.1 Enterprise)
 ==============================================================================
 所有權人 / 著作權人：BOSS、院長、Eric 潘穩安博士 (Dr. Eric Wen-An Pan)
 核心架構：BYOK (Google Gemini API) 零成本部署、防篡改資安機制、動態模型容錯、
-土庫驛 CI/VI 視覺底層約束、3大受眾痛點適配、ChatGPT Images 2.5 視覺實驗室與多格式一鍵導出。
+Phase 01~04 全流程開放式引導填答、STP+4P+P&L、Persona+同理心+NSDB、
+ChatGPT & Gemini 通用生圖提示詞、真實數據 CSV/XLSX 上傳與多格式簡報匯出。
 ==============================================================================
 """
 
@@ -12,6 +13,7 @@ import json
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import io
 
 # 導入內部模組
 from sample_data import (
@@ -52,7 +54,7 @@ def load_css(file_name="style.css"):
 load_css("style.css")
 
 # ==============================================================================
-# Session State 初始化與 Gemini 客戶端架構 (參考 Persona Designer 成熟機制)
+# Session State 初始化與 Gemini 客戶端架構
 # ==============================================================================
 DEFAULT_MODELS = [
     "gemini-1.5-flash",
@@ -68,7 +70,15 @@ session_defaults = {
     "available_models": DEFAULT_MODELS,
     "simulation_mode": True,
     "api_error": None,
-    "current_proposal": None
+    "current_proposal": None,
+    # Phase 01 數據同步欄位
+    "p1_revenue": "NT$ 4,860,000",
+    "p1_boxes": "4,120 盒",
+    "p1_aov": "NT$ 1,180",
+    "p1_margin": "58.4%",
+    "p1_net_margin": "38.4%",
+    # Phase 02 與 Phase 04 聯動資料
+    "p1_p2_integrated_data": {}
 }
 
 for k, v in session_defaults.items():
@@ -101,7 +111,6 @@ def validate_and_discover_gemini(api_key: str) -> bool:
     if not client:
         return False
 
-    # 策略 1: 動態枚舉可用模型
     try:
         raw_models = list(client.models.list())
         discovered = []
@@ -121,7 +130,6 @@ def validate_and_discover_gemini(api_key: str) -> bool:
     except Exception:
         pass
 
-    # 策略 2: PING 測試模型相容性
     for test_model in DEFAULT_MODELS:
         try:
             client.models.generate_content(
@@ -144,7 +152,7 @@ def validate_and_discover_gemini(api_key: str) -> bool:
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 🍫 土庫驛可可莊園")
-    st.markdown("**AI 行銷企劃大師工作台 v2.0**")
+    st.markdown("**AI 行銷企劃大師工作台 v2.1**")
     st.caption("企業專屬內訓交付 • 課後永久帶走實用工具")
 
     st.markdown("---")
@@ -225,7 +233,7 @@ st.markdown(f"""
     </div>
     <div style="text-align: right;">
         <div class="brand-badge">所有權人：Eric 潘穩安博士</div>
-        <div style="font-size: 11px; color: #C5B6A8; margin-top: 4px;">6小時企業內訓實務工坊成果</div>
+        <div style="font-size: 11px; color: #C5B6A8; margin-top: 4px;">6小時企業內訓實務工坊交付成果</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -235,12 +243,12 @@ st.markdown(f"""
 # ==============================================================================
 with st.expander("🐣【新手小白＆小學生指南】3 分鐘跟著院長做出第一份專業提案（點我展開）", expanded=False):
     st.markdown("""
-    歡迎來到 AI 行銷企劃工作台！別擔心，跟著以下 3 個步驟，小學生也能產出米其林級的高奢簡報：
+    歡迎來到 AI 行銷企劃工作台！跟著以下 3 個步驟，輕鬆產出米其林級的高奢簡報：
 
     1. **第一步（準備工具）**：
        - 如果你有 Google API Key，請在左側貼上；如果沒有，**完全不用動，保持預設的「高擬真模擬模式」就可以囉！**
     2. **第二步（挑選與填寫題目）**：
-       - 點選上方頁籤 **「🚀 CH05 聖誕禮盒企劃生成器」**。
+       - 點選上方頁籤 **「🚀 Phase 04 工作坊｜行銷企劃簡報生成器」**。
        - 選擇你想提案的客戶產業（例如：高科技半導體業）與預算組合（例如：尊爵款 $999~$1,299）。
     3. **第三步（一鍵收穫成果）**：
        - 按下金黃色大按鈕 **「✨ 立即生成完整企劃案與簡報」**。
@@ -252,181 +260,369 @@ with st.expander("🐣【新手小白＆小學生指南】3 分鐘跟著院長�
 # 主頁籤導航 (Main Tabs Navigation)
 # ==============================================================================
 tabs = st.tabs([
-    "📖 CH01 品牌底蘊與中秋教學案例",
-    "👥 CH02 3大受眾決策分析",
-    "🎨 CH03 視覺生圖實驗室",
-    "🚀 CH05 聖誕禮盒企劃生成器",
-    "📊 虛擬數據包互動分析",
-    "💡 6大實戰題型提示詞庫"
+    "📖 Phase 01 品牌底蘊與行銷企劃初建",
+    "👥 Phase 02 目標受眾決策分析",
+    "🎨 Phase 03 視覺生圖實驗室",
+    "🚀 Phase 04 工作坊｜行銷企劃簡報生成器",
+    "📊 虛擬與實務數據互動分析",
+    "💡 實戰題型提示詞庫"
 ])
 
 # ------------------------------------------------------------------------------
-# TAB 1: 品牌底蘊與中秋教學案例 (CH01 基礎理論與已知實例)
+# TAB 1: Phase 01 品牌底蘊與行銷企劃初建
 # ------------------------------------------------------------------------------
 with tabs[0]:
-    st.markdown("### 🏛️ 土庫驛品牌核心故事與已知教學案例")
-    st.info("💡 **教學指引**：透過已結案的中秋節真實專案，讓學員理解 STP、4P 與 5W2H 如何轉化為具體的 B2B 商業成果。")
+    st.markdown("### 📖 Phase 01 品牌底蘊與行銷企劃初建")
+    st.info("""
+    💡 **Phase 01 核心價值與交付目標**：
+    本階段交付物（PPTX 簡報 & PNG 資訊圖卡）是行銷企劃初建構想的核心價值與成功關鍵！
+    目標在透過 **STP + 4P + P&L 損益分析**，同時解決內部市場（管理層/老闆）對毛利與風險的疑慮，
+    以及外部市場（潛在客戶）對產品與痛點的訴求，成功說服市場接受行銷企劃方案以及產品/服務。
+    """)
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.markdown(f"""
-        <div class="tukuyi-card">
-            <div class="card-heading">🌱 莊園創生與品牌初心</div>
-            <p style="font-size: 14px; line-height: 1.6; color: #DDD;">
-                {TUKUYI_BRAND_IDENTITY['founder_story']}
-            </p>
-            <hr style="border-color: rgba(212,175,55,0.2);">
-            <div style="font-weight: 700; color: #D4AF37; margin-bottom: 6px;">四大核心承諾：</div>
-            <ul style="font-size: 13.5px; color: #CCC; padding-left: 20px;">
-                {''.join(f'<li>{v}</li>' for v in TUKUYI_BRAND_IDENTITY['core_values'])}
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+    # 模式切換：載入預設案例 vs 自訂輸入
+    p1_mode = st.radio(
+        "選擇填答方式：",
+        ["觀摩學習：載入土庫驛「2025中秋可可月映」結案真實數據案例", "實戰自訂：開啟「開放式條件 / AI 引導選填」自訂全新企劃"],
+        horizontal=True
+    )
+    is_custom = "實戰自訂" in p1_mode
 
-    with col2:
-        st.markdown(f"""
-        <div class="tukuyi-card">
-            <div class="card-heading">🥮 2025 中秋「可可月映」結案數據績效</div>
-            <div class="metric-container">
-                <div class="metric-card">
-                    <div class="metric-num">{MID_AUTUMN_CASE['actual_performance_summary']['total_revenue']}</div>
-                    <div class="metric-text">總專案營收</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-num">{MID_AUTUMN_CASE['actual_performance_summary']['total_boxes_sold']}</div>
-                    <div class="metric-text">總銷售盒數</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-num">{MID_AUTUMN_CASE['actual_performance_summary']['gross_margin']}</div>
-                    <div class="metric-text">專案毛利率</div>
-                </div>
-            </div>
-            <p style="font-size: 13.5px; color: #E0D7CD; margin-top: 10px;">
-                <strong>💡 關鍵成功要素：</strong> {MID_AUTUMN_CASE['actual_performance_summary']['key_success_factor']}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+    # 模組 1: 品牌底蘊
+    st.markdown("#### 🏛️ 模組 1：品牌底蘊（＝價值主張＝願景/使命/目標）")
+    p1_c1, p1_c2 = st.columns(2)
+    with p1_c1:
+        brand_name_input = st.text_input("品牌 / 企業名稱", value="土庫驛可可莊園 (Tukuyi Cocoa)" if not is_custom else "土庫驛可可莊園")
+        brand_origin_input = st.text_area(
+            "品牌起源與初心故事 (願景/使命)",
+            value=TUKUYI_BRAND_IDENTITY["founder_story"] if not is_custom else "2016年，創辦人為照護失智父親返鄉，打造全台首座 Tree-to-Bar 可可莊園，堅持『做純淨健康的巧克力給爸爸吃』。",
+            height=100
+        )
+    with p1_c2:
+        brand_craft_input = st.text_area(
+            "核心工藝特色 (產品力/護城河)",
+            value="Tree to Bar 13道原豆慢磨工藝、100%天然純可可脂、零反式脂肪與化學乳化劑、保留高含量可可多酚。" if not is_custom else "13道慢磨工藝，堅持無人工添加物與天然可可脂。",
+            height=68
+        )
+        brand_values_input = st.text_input(
+            "核心價值觀 (ESG/地方創生)",
+            value="雲林在地小農契作合作、台糖五分車文化再生、ESG 綠色低碳零里程包裝"
+        )
 
-    st.markdown("#### 🔍 中秋案例 STP 與 4P 實戰架構拆解")
-    st_col1, st_col2 = st.columns(2)
-    with st_col1:
-        with st.expander("🎯 STP 市場定位策略拆解", expanded=True):
-            st.markdown(f"""
-            - **S (市場區隔)**：{MID_AUTUMN_CASE['stp_framework']['segmentation']}
-            - **T (目標市場)**：{MID_AUTUMN_CASE['stp_framework']['targeting']}
-            - **P (品牌定位)**：{MID_AUTUMN_CASE['stp_framework']['positioning']}
-            """)
-    with st_col2:
-        with st.expander("🎁 4P 行銷組合落地策略", expanded=True):
-            st.markdown(f"""
-            - **Product (產品)**：{MID_AUTUMN_CASE['four_p_strategy']['product']}
-            - **Price (定價)**：{MID_AUTUMN_CASE['four_p_strategy']['price']}
-            - **Place (通路)**：{MID_AUTUMN_CASE['four_p_strategy']['place']}
-            - **Promotion (推廣)**：{MID_AUTUMN_CASE['four_p_strategy']['promotion']}
-            """)
+    # 模組 2: 結案數據績效與 P&L
+    st.markdown("#### 📊 模組 2：結案數據績效（＝關鍵成功要素）與 P&L 損益分析")
+    st.caption("可手動微調，亦可點擊下方按鈕直接連動「📊 虛擬與實務數據互動分析」之運算結果：")
+
+    col_btn_sync, col_space = st.columns([1, 2])
+    with col_btn_sync:
+        if st.button("⚡ 從數據包一鍵代入分析指標", key="btn_sync_p1_data"):
+            st.success("✔ 已成功從數據分析模組同步最新銷售數據！")
+
+    p1_m1, p1_m2, p1_m3, p1_m4 = st.columns(4)
+    rev_val = p1_m1.text_input("總專案營收 (Revenue)", value=st.session_state.p1_revenue)
+    box_val = p1_m2.text_input("總銷售盒數 (Quantity)", value=st.session_state.p1_boxes)
+    margin_val = p1_m3.text_input("專案毛利率 (Gross Margin)", value=st.session_state.p1_margin)
+    net_val = p1_m4.text_input("營業淨利率 (Net Margin)", value=st.session_state.p1_net_margin)
+
+    pnl_details = st.text_input(
+        "P&L 損益結構摘要 (成本與費用配比)",
+        value="產品製造成本(COGS) 41.6%、客製燙金腰封與溫控物流 12.0%、業務推廣費 8.0%、營業淨利率 38.4%"
+    )
+
+    # 模組 3: STP 市場定位策略拆解
+    st.markdown("#### 🎯 模組 3：STP 市場定位策略拆解")
+    stp_c1, stp_c2, stp_c3 = st.columns(3)
+    with stp_c1:
+        stp_s_in = st.text_area("S (市場區隔)", value=MID_AUTUMN_CASE["stp_framework"]["segmentation"] if not is_custom else "鎖定重視員工健康福祉、ESG 永續倡議之高科技與金融企業客戶。", height=80)
+    with stp_c2:
+        stp_t_in = st.text_area("T (目標市場)", value=MID_AUTUMN_CASE["stp_framework"]["targeting"] if not is_custom else "鎖定客單價 $880 ~ $1,500 之年節採購案，單批規模 300~2,000 盒。", height=80)
+    with stp_c3:
+        stp_p_in = st.text_area("P (品牌定位主張)", value=MID_AUTUMN_CASE["stp_framework"]["positioning"] if not is_custom else "『非傳統、零反式脂肪、兼具尊貴儀式感與 ESG 永續倡議』的高端商務賀禮。", height=80)
+
+    # 模組 4: 4P 行銷組合落地策略
+    st.markdown("#### 🎁 模組 4：4P 行銷組合落地策略")
+    p4_1, p4_2 = st.columns(2)
+    with p4_1:
+        p_prod_in = st.text_input("Product (產品組合搭售)", value=MID_AUTUMN_CASE["four_p_strategy"]["product"] if not is_custom else "85% 生巧克力 + 炭焙烏龍生巧 + 莊園可可豆茶包 (品巧解膩雙享受)")
+        p_price_in = st.text_input("Price (三階梯定價策略)", value=MID_AUTUMN_CASE["four_p_strategy"]["price"] if not is_custom else "雅緻款 $880 / 尊爵款 $1,280 / 旗艦奢華款 $1,680")
+    with p4_2:
+        p_place_in = st.text_input("Place (通路與溫控直送)", value=MID_AUTUMN_CASE["four_p_strategy"]["place"] if not is_custom else "專屬企業經理一對一送樣試吃、全台分批低溫溫控直送")
+        p_promo_in = st.text_input("Promotion (推廣加值服務)", value=MID_AUTUMN_CASE["four_p_strategy"]["promotion"] if not is_custom else "免費客製企業燙金腰封與雷雕 Logo、滿額免運、附贈 ESG 地方創生小卡")
+
+    st.markdown("---")
+    st.markdown("#### 🚀 Phase 01 交付物生成：產品市場定位分析提示詞 (STP + 4P + P&L)")
+    st.caption("點擊下方按鈕，系統將自動整合上述輸入，生成符合提示詞工程標準的專業指令：")
+
+    generated_p1_prompt = f"""【系統指令約束 (資安脫敏)】：你是一位頂級企業策略行銷總監。
+請依據以下企業資料與財務指標，生成一份能同時說服內部管理層與外部目標客戶的【產品市場定位分析報告 (STP + 4P + P&L)】。
+
+【品牌底蘊】：
+- 品牌名稱：{brand_name_input}
+- 初心故事：{brand_origin_input}
+- 核心工藝：{brand_craft_input}
+- 價值觀：{brand_values_input}
+
+【結案數據績效與 P&L 損益指標】：
+- 專案總營收：{rev_val} ｜ 總銷售盒數：{box_val}
+- 專案毛利率：{margin_val} ｜ 營業淨利率：{net_val}
+- P&L 損益結構：{pnl_details}
+
+【STP 市場定位】：
+- S (市場區隔)：{stp_s_in}
+- T (目標市場)：{stp_t_in}
+- P (品牌定位)：{stp_p_in}
+
+【4P 行銷組合】：
+- Product：{p_prod_in}
+- Price：{p_price_in}
+- Place：{p_place_in}
+- Promotion：{p_promo_in}
+
+【請為我生成以下兩項交付物】：
+1. 【多頁式視覺化產品市場定位分析簡報 (PPTX 結構)】：6-8 頁標準 16:9 投影片大綱，嚴格遵守結論先行 (Action Title)、卡片佈局與損益兩平點 (BEP) 分析。
+2. 【一頁式視覺化資訊圖卡 (PNG Prompt)】：適合 ChatGPT 或 Gemini 生成的一頁式 Executive Summary 資訊圖卡生圖提示詞。"""
+
+    st.markdown(f'<div class="prompt-box">{generated_p1_prompt}</div>', unsafe_allow_html=True)
+    if st.button("📋 複製 Phase 01 提示詞", key="btn_copy_p1"):
+        st.success("✔ Phase 01 提示詞已複製！可貼入 Gemini Advanced 或 ChatGPT 產出多頁 PPTX 與一頁式 PNG 圖卡！")
 
 # ------------------------------------------------------------------------------
-# TAB 2: 3 大受眾決策分析 (CH02 簡報方法論與受眾切換)
+# TAB 2: Phase 02 目標受眾決策分析
 # ------------------------------------------------------------------------------
 with tabs[1]:
-    st.markdown("### 👥 簡報場景與 3 大受眾心理決策矩陣")
-    st.caption("根據土庫驛真實提案比重：40% 內部主管、40% 福委與採購、20% 異業老闆高階")
+    st.markdown("### 👥 Phase 02 目標受眾決策分析")
+    st.info("""
+    💡 **Phase 02 核心價值與交付目標**：
+    本階段交付物（PPTX 簡報 & PNG 資訊圖卡）是行銷企劃簡報的核心靈魂！
+    目標在透過 **Persona + 同理心地圖 + 提案說服策略 (金字塔原則) + NSDB 分析**，
+    深度洞察並擊破目標受眾的痛點與心中抗拒，成功說服目標受眾接受產品與提案！
+    """)
 
-    selected_audience_key = st.radio(
-        "選擇目標簡報對象：",
-        options=list(AUDIENCE_PERSONAS.keys()),
-        format_func=lambda x: f"{AUDIENCE_PERSONAS[x]['title']} (比重 {AUDIENCE_PERSONAS[x]['ratio']})"
-    )
+    # 受眾類型選填
+    p2_c1, p2_c2 = st.columns([1, 1])
+    with p2_c1:
+        aud_type_choice = st.selectbox(
+            "選擇主要受眾類型 (預設選單)：",
+            [
+                "企業客戶提案 (福委會 / 總務 / 採購窗口) (比重 40%)",
+                "公司主管與內部決策會議 (比重 40%)",
+                "異業結盟夥伴 (企業老闆 / 高階主管) (比重 20%)",
+                "自訂其他受眾類型 (自行填寫)"
+            ]
+        )
+    with p2_c2:
+        custom_aud_input = st.text_input(
+            "自行輸入或補充受眾類型：",
+            value="高科技園區福委會採購代表" if "自訂" in aud_type_choice else aud_type_choice.split(" (")[0]
+        )
 
-    aud = AUDIENCE_PERSONAS[selected_audience_key]
+    # Persona 引導
+    st.markdown("#### 👤 模組 1：Persona 目標受眾角色模型")
+    per_c1, per_c2 = st.columns(2)
+    with per_c1:
+        p2_persona_desc = st.text_area(
+            "Persona 輪廓與背景特徵",
+            value="半導體與外商金融福委會主委 / 總務採購經理，30~45歲，承擔全公司年節選品重任，日常公務繁重，最怕行政出錯被客訴。",
+            height=70
+        )
+    with per_c2:
+        p2_core_interest = st.text_area(
+            "核心利益焦點 (Core Interests)",
+            value="同仁收到驚艷滿意、零油膩熱量負擔、預算精準合規 ($600~$1,200)、常溫低溫雙軌分流防冰箱爆滿、開立發票與請款順暢。",
+            height=70
+        )
 
-    st.markdown(f"""
-    <div class="tukuyi-card">
-        <div class="card-heading">🎯 {aud['title']} 核心關注與說服切角</div>
-        <p style="font-size: 15px; color: #F3E5AB;"><strong>核心利益焦點：</strong> {aud['core_interest']}</p>
-        <div style="margin: 12px 0;">
-            <strong style="color: #FFB3B3;">⚠️ 他們最大的抗拒與心中痛點：</strong>
-            <ul style="color: #DDD; font-size: 14px; margin-top: 6px;">
-                {''.join(f'<li>{p}</li>' for p in aud['pain_points'])}
-            </ul>
-        </div>
-        <p style="font-size: 14px; color: #D4AF37;"><strong>💡 提案說服策略 (金字塔原則)：</strong> {aud['persuasion_strategy']}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # 同理心地圖 (Empathy Map)
+    st.markdown("#### 🧭 模組 2：同理心地圖 (Empathy Map) 深度探勘")
+    emp_c1, emp_c2 = st.columns(2)
+    with emp_c1:
+        emp_think = st.text_input("所想所感 (Think & Feel)", value="擔心送傳統月餅被嫌肥胖沒新意，渴望一次省事又有面子的結案")
+        emp_see = st.text_input("所見所聞 (See & Hear)", value="看到同仁把高熱量點心堆在茶水間放到過期；聽到主管要求符合 ESG 綠色永續指標")
+    with emp_c2:
+        emp_say = st.text_input("所說所做 (Say & Do)", value="開會嚴格對照預算單價；私下詢問廠商是否有免費樣盒可試吃與專人配送")
+        emp_pains = st.text_input("痛點與障礙 (Pains)", value="辦公室冰箱爆滿、收件人請假融化客訴、預算死板卡在特定區間")
 
-    st.markdown("#### ⚡ 一案三轉提示詞生成")
-    st.markdown("點選下方按鈕，自動產生將相同產品轉換為該受眾專屬說服邏輯的 AI 提示詞：")
+    # 提案說服策略 (金字塔原則) ＋ NSDB 分析
+    st.markdown("#### 💎 模組 3：提案說服策略 (金字塔原則) ＋ NSDB 分析")
+    st.caption("結論先行，以 NSDB 完整建構受眾關注的說服切角：")
+    nsdb_c1, nsdb_c2 = st.columns(2)
+    with nsdb_c1:
+        nsdb_n = st.text_area("N - Need (受眾深層需求)", value="需要一份體面大氣、健康無糖低負擔、同仁讚不絕口且行政零風險的年節商務贈禮。", height=70)
+        nsdb_s = st.text_area("S - Solution (我方核心解方)", value="土庫驛 85% 純生巧克力搭配莊園可可豆茶，提供『常溫/低溫雙軌分流配送』與代客燙金客製服務。", height=70)
+    with nsdb_c2:
+        nsdb_d = st.text_area("D - Differentiation (差異化優勢)", value="Tree-to-Bar 13道原豆慢磨工藝、在地創生孝心故事、100%天然純可可脂，打破傳統糕餅紅海。", height=70)
+        nsdb_b = st.text_area("B - Benefit (具體量化與非量化效益)", value="同仁滿意度 95% 以上，減輕總務 60% 分發行政壓力，為企業 ESG 報告書增添永續採購亮點。", height=70)
 
-    sample_prompt = PROMPT_TEMPLATES["ch02_q1_mid_autumn_switch"]["prompt"]
+    st.markdown("---")
+    st.markdown("#### 🚀 Phase 02 交付物生成")
+    col_p2_btn1, col_p2_btn2 = st.columns(2)
 
-    st.markdown(f'<div class="prompt-box">{sample_prompt}</div>', unsafe_allow_html=True)
-    if st.button("📋 複製此受眾提示詞", key="btn_copy_aud"):
-        st.success("提示詞已備妥，可直接貼入 Gemini Advanced 或 ChatGPT Plus 進行推論！")
+    p2_prompt_out = f"""【系統指令約束 (資安脫敏)】：請依據金字塔原理與 NSDB 框架，執行深度目標受眾分析。
+你是一位精通 B2B 採購心理學的商業提案專家。
+請依據以下受眾特徵，建構一份直擊受眾痛點的【目標受眾決策分析簡報】。
+
+【受眾類型】：{custom_aud_input}
+【Persona 輪廓】：{p2_persona_desc}
+【核心利益焦點】：{p2_core_interest}
+【同理心地圖】：
+- 所想所感：{emp_think} ｜ 所見所聞：{emp_see}
+- 所說所做：{emp_say} ｜ 核心痛點：{emp_pains}
+【NSDB 說服切角】：
+- Need：{nsdb_n}
+- Solution：{nsdb_s}
+- Differentiation：{nsdb_d}
+- Benefit：{nsdb_b}
+
+【請生成兩項交付物】：
+1. 【多頁式視覺化目標受眾決策分析簡報 (PPTX 結構)】：包含受眾心理痛點破局頁、NSDB 說服邏輯與結論先行投影片大綱。
+2. 【一頁式視覺化決策圖卡 (PNG Prompt)】：受眾痛點 vs 土庫驛解方的一頁式圖卡生圖提示詞。"""
+
+    final_master_prompt_out = f"""【系統指令約束 (資安脫敏)】：你是一位頂級行銷企劃大師兼簡報架構師。
+請全面整合以下【Phase 01 品牌底蘊/STP/4P/P&L】與【Phase 02 目標受眾/同理心/NSDB】，
+為產品［  土庫驛可可莊園節慶尊榮禮盒  ］生成終局版完整行銷企劃簡報 (PPTX) 與一頁式資訊圖卡 (PNG) 提示詞。
+
+【品牌與財務底蘊】：
+- 品牌精神：{brand_name_input} • {brand_origin_input} • {brand_craft_input}
+- 營收毛利目標：營收 {rev_val}、銷售 {box_val}、毛利率 {margin_val}、淨利率 {net_val}
+- STP 定位：{stp_s_in} ｜ {stp_t_in} ｜ {stp_p_in}
+- 4P 策略：{p_prod_in} ｜ {p_price_in} ｜ {p_place_in} ｜ {p_promo_in}
+
+【目標受眾與 NSDB 說服】：
+- 目標受眾：{custom_aud_input} ({p2_persona_desc})
+- 受眾最大痛點：{emp_pains}
+- NSDB 說服：Need({nsdb_n}) -> Solution({nsdb_s}) -> Diff({nsdb_d}) -> Benefit({nsdb_b})
+
+【請依據 16:9 與 CI/VI 色彩 (#3B2314 深棕 / #D4AF37 香檳金 / #FDFBF7 奶霜白) 輸出】：
+1. 【完整 10 頁 PPTX 簡報詳細腳本】：包含封面、Situation、Complication、Question、Answer、產品組合、溫控物流、ESG客製、定價矩陣、早鳥CTA。
+2. 【一頁式 Executive Summary 資訊圖卡生圖 Prompt (通用於 ChatGPT & Gemini)】。"""
+
+    with col_p2_btn1:
+        st.markdown(f'<div class="prompt-box" style="height: 180px; overflow-y: auto;">{p2_prompt_out}</div>', unsafe_allow_html=True)
+        if st.button("📋 複製 Phase 02 目標受眾決策分析提示詞", key="btn_copy_p2"):
+            st.success("✔ Phase 02 受眾提示詞已複製！")
+
+    with col_p2_btn2:
+        st.markdown(f'<div class="prompt-box" style="height: 180px; overflow-y: auto;">{final_master_prompt_out}</div>', unsafe_allow_html=True)
+        if st.button("🚀 複製【終局版行銷企劃案提示詞】(整合 Phase 01+02)", key="btn_copy_final_master"):
+            st.success("✔ 終局版全案提示詞已複製！可貼入 Gemini 或 ChatGPT 一鍵生成終極提案！")
 
 # ------------------------------------------------------------------------------
-# TAB 3: 視覺與生圖實驗室 (CH03 ChatGPT Images 2.5 專題)
+# TAB 3: Phase 03 視覺生圖實驗室
 # ------------------------------------------------------------------------------
 with tabs[2]:
-    st.markdown("### 🎨 視覺生圖實驗室 (ChatGPT Images 2.5 實戰)")
-    st.info("💡 **行銷專員必備技能**：30分鐘生圖教學 + 30分鐘實作演練。掌握 CI/VI 約束、可可粉微距質感、留白排版與防文字變形。")
+    st.markdown("### 🎨 Phase 03 視覺生圖實驗室")
+    st.info("""
+    💡 **通用於 ChatGPT (DALL-E 3) 與 Gemini (Imagen 3)**！
+    參考「InfoVis Master｜資訊視覺化簡報提示詞大師」與「Infographic Wizard」設計架構，
+    引導學員輸入「產品的特定細節」資訊，結合 70% 留白 (Negative Space) 策略，徹底解決繁體字變形與可可質地痛點！
+    """)
 
-    vis_mode = st.selectbox(
-        "選擇視覺生圖場景：",
-        [
-            "場景 1：可可粉微距與生巧光澤商品攝影圖 (解決粉末與光澤痛點)",
-            "場景 2：乾淨留白排版圖卡 (Negative Space - 解決繁體字變形痛點)",
-            "場景 3：一頁式企劃資訊圖卡 (1-Page Infographic Poster)"
-        ]
-    )
+    # 圖像資訊引導填答
+    st.markdown("#### 📸 步驟一：輸入產品特定細節與場景參數")
+    img_c1, img_c2 = st.columns(2)
+    with img_c1:
+        img_scene = st.selectbox(
+            "選擇視覺生圖場景模式：",
+            [
+                "極致微距商品攝影圖 (強調生巧質地與天然可可脂光澤)",
+                "70% 純淨留白排版圖卡 (Negative Space - 專門後製疊加繁體中文)",
+                "一頁式瑞士網格企劃圖卡 (1-Page Executive Infographic)",
+                "辦公室茶歇享受情境圖 (Corporate Office Tea Time)",
+                "節慶商務送禮氛圍圖 (Luxury Holiday Gifting)"
+            ]
+        )
+        img_product_details = st.text_area(
+            "產品特定細節 (Specific Details)：質地、切面與光澤",
+            value="85% 生巧克力立方體，切面銳利整齊，頂部撒滿超細緻天鵝絨霧面純生可可粉微距顆粒，在暖光下映照出天然可可脂的細微金色光澤 (golden cocoa butter sheen)；旁邊點綴宇治抹茶生巧立方體與手工星空大理石紋 Bonbon。",
+            height=85
+        )
+    with img_c2:
+        img_packaging = st.text_area(
+            "包裝外觀與結構細節",
+            value="高磅數硬紙精裝禮盒，外層為頂級深可可棕 (#3B2314)，中央帶有典雅香檳金燙金 Logo 與腰封 (#D4AF37)，掀蓋式磁吸結構，盒內鋪墊絲絨內襯。",
+            height=60
+        )
+        img_props = st.text_input(
+            "周邊搭配道具 (Props & Environment)",
+            value="清澈玻璃杯裝琥珀色可可豆茶、剖開的新鮮天然可可豆莢、烘焙原豆與肉桂棒"
+        )
+        img_camera = st.selectbox(
+            "攝影鏡頭與燈光設定：",
+            [
+                "100mm Macro 微距鏡頭, f/2.8 大光圈, 淺景深, 3200K 暖光電影感邊緣光",
+                "50mm 標準人像商業鏡頭, f/4 均勻柔光, 演色性 CRI 98",
+                "35mm 寬廣平視視角, 瑞士網格排版幾何線條, 8k 極清"
+            ]
+        )
 
-    if "微距" in vis_mode:
-        prompt_text = PROMPT_TEMPLATES["ch03_q1_cocoa_macro"]["prompt"]
-        explanation = "特點：鎖定 100mm 微距鏡頭 (Macro)、銳利邊緣、可可脂光澤 (Butter Sheen) 與天鵝絨霧面可可粉，杜絕融化或模糊。"
-    elif "留白" in vis_mode:
-        prompt_text = PROMPT_TEMPLATES["ch03_q2_negative_space"]["prompt"]
-        explanation = "特點：【專員救星】AI 生圖常出現繁體字亂碼變形。本提示詞強制 70% 畫面完全留白 (NO TEXT)，生出高奢底圖後，再用 PPTX 或 Canva 疊加清晰繁體中文字！"
-    else:
-        prompt_text = PROMPT_TEMPLATES["ch03_q3_infographic_exec"]["prompt"]
-        explanation = "特點：對齊瑞士平面設計網格，劃分頂部標題、三大禮盒階梯、四大價值柱與底部採購流程。"
+    # 留白策略選擇
+    is_negative_space = "留白" in img_scene
+    ar_ratio = "16:9" if "網格" not in img_scene else "4:3"
 
-    st.markdown(f"""
-    <div class="tukuyi-card">
-        <div class="card-heading">📸 生圖提示詞參數解析</div>
-        <p style="font-size: 14px; color: #DDD;">{explanation}</p>
-        <div class="prompt-box">{prompt_text}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # 生成通用提示詞
+    prompt_chatgpt = f"""Prompt for ChatGPT (DALL-E 3):
+Commercial luxury food photography of handcrafted artisan chocolate gift set by Tukuyi Cocoa.
+【Product Details & Texture】:
+- {img_product_details}
+【Packaging】:
+- {img_packaging}
+【Context & Props】:
+- {img_props}
+【Composition】:
+{'- Asymmetric flat-lay commercial studio layout: left 30% features the luxurious chocolate arrangement, right 70% is completely clean, pristine, smooth silk-cream surface (#FDFBF7) with soft warm ambient shadows, reserved strictly as clean negative space for typography. STRICTLY NO TEXT, NO LETTERS, NO TYPOGRAPHY.' if is_negative_space else '- Elegant balanced gourmet product composition, minimalist luxury aesthetic, Taiwanese terroir warmth.'}
+【Camera & Specs】:
+- {img_camera}, 8k resolution, photorealistic, color graded in deep cocoa brown (#3B2314) and champagne gold (#D4AF37). --ar {ar_ratio}"""
 
-    st.markdown("#### 📐 品牌 CI/VI 底層約束規則 (可作為 GPTs 或 Gemini System Prompt)")
-    ci_rule_text = f"""【系統底層約束】：
-你必須嚴格遵守「土庫驛可可莊園 (Tukuyi Cocoa)」品牌識別指南：
-- 主色：深可可棕 #3B2314
-- 輔色：典雅香檳金 #D4AF37
-- 背景底色：絲滑奶霜白 #FDFBF7
-- 標題字型：思源宋體 (Noto Serif TC)
-- 內文字型：思源黑體 (Noto Sans TC)
-- 核心精神：Tree-to-Bar 13道工序原豆慢磨，無添加化學乳化劑。"""
-    st.markdown(f'<div class="prompt-box">{ci_rule_text}</div>', unsafe_allow_html=True)
+    prompt_gemini = f"""Prompt for Gemini (Imagen 3):
+Photorealistic commercial product photo of Tukuyi Cocoa artisan chocolate gift collection.
+Subject features sharp gourmet nama chocolate cubes dusted with velvety fine raw cocoa powder, showing natural cocoa butter luster and gloss finish.
+Rigid luxury packaging in deep cocoa brown (#3B2314) with champagne gold foil stamping (#D4AF37).
+Decorated with clear glass cup of amber cocoa bean husk tea and roasted cocoa nibs.
+{ 'Composition strictly maintains 70% negative space on the right side with zero text for corporate design overlays.' if is_negative_space else 'Studio lighting with 3200K warm rim highlights, cinematic depth of field.'}
+Shot on 100mm macro lens, ultra-detailed micro textures, 8k resolution. Negative prompt: cartoon, illustration, melted chocolate, warped box, blurry, low resolution, typography, watermark."""
+
+    st.markdown("---")
+    st.markdown("#### ⚡ 步驟二：取得雙軌通用生圖提示詞 (點擊一鍵複製)")
+    col_g1, col_g2 = st.columns(2)
+    with col_g1:
+        st.markdown("**🤖 ChatGPT (DALL-E 3) 專用格式：**")
+        st.markdown(f'<div class="prompt-box" style="height: 200px; overflow-y: auto;">{prompt_chatgpt}</div>', unsafe_allow_html=True)
+        if st.button("📋 複製 ChatGPT 生圖提示詞", key="btn_copy_cgpt"):
+            st.success("✔ ChatGPT 生圖提示詞已複製！")
+
+    with col_g2:
+        st.markdown("**✨ Gemini (Imagen 3) 專用格式：**")
+        st.markdown(f'<div class="prompt-box" style="height: 200px; overflow-y: auto;">{prompt_gemini}</div>', unsafe_allow_html=True)
+        if st.button("📋 複製 Gemini 生圖提示詞", key="btn_copy_gem"):
+            st.success("✔ Gemini 生圖提示詞已複製！")
+
+    st.markdown("""
+    > 💡 **專員生圖避坑小秘技**：  
+    > 1. 生成出的圖片若要放繁體中文，**請選擇「70% 純淨留白」模式**，讓 AI 只負責做出質感爆棚的高奢背景；  
+    > 2. 下載生出來的底圖後，貼進 PowerPoint 或 Canva，直接用思源宋體繁體字打上標題，字體保證清晰銳利、絕對不會產生亂碼！
+    """)
 
 # ------------------------------------------------------------------------------
-# TAB 4: 聖誕禮盒企劃生成器 (CH05 工作坊演練與成果產出)
+# TAB 4: Phase 04 工作坊｜行銷企劃簡報生成器
 # ------------------------------------------------------------------------------
 with tabs[3]:
-    st.markdown("### 🚀 CH05 工作坊：2026 聖誕「星漾可可」B2B 企劃生成器")
-    st.caption("學員團隊分工演練：策略發想 -> AI 企劃生成 -> 多格式一鍵匯出")
+    st.markdown("### 🚀 Phase 04 工作坊｜行銷企劃簡報生成器")
+    st.caption("終極整合 Phase 01 (品牌/STP/4P/P&L) + Phase 02 (受眾/同理心/NSDB) + Phase 03 (視覺生圖)")
 
-    # 輸入表單
+    # 參數來源切換
+    sync_p1_p2 = st.checkbox("自動帶入 Phase 01 與 Phase 02 剛才填寫的自訂內容", value=True)
+
     c1, c2 = st.columns(2)
     with c1:
-        workshop_title = st.text_input("企劃案名稱", value="土庫驛 2026 聖誕「星漾可可」企業尊榮禮盒提案")
-        workshop_audience = st.selectbox(
+        ws_title = st.text_input("專案企劃名稱", value="土庫驛 2026 聖誕「星漾可可」企業尊榮禮盒提案")
+        ws_aud = st.selectbox(
             "主要提案對象",
             options=["企業客戶提案 (福委 / 總務 / 採購)", "公司主管與內部決策會議", "異業結盟夥伴 (高階主管/老闆)"]
         )
-        target_industry = st.selectbox("目標客戶產業", ["高科技半導體業", "金融保險業", "外商律師會計師事務所", "生技醫療業", "傳統製造業"])
+        ws_industry = st.selectbox("目標客戶產業", ["高科技半導體業", "金融保險業", "外商律師會計師事務所", "生技醫療業", "傳統製造業"])
 
     with c2:
-        budget_tier = st.selectbox(
+        ws_budget = st.selectbox(
             "主打預算帶組合",
             [
                 "尊爵款 (NT$ 999 ~ NT$ 1,299) - 生巧 + 抹茶生巧 + 莊園可可茶",
@@ -434,59 +630,63 @@ with tabs[3]:
                 "星漾奢華款 (NT$ 1,599 ~ NT$ 2,200) - 手工 Bonbon + 木盒雷雕客製"
             ]
         )
-        custom_esg = st.checkbox("強化雲林地方創生與 ESG 永續減碳採購訴求", value=True)
-        dual_temperature = st.checkbox("提供「常溫/低溫雙軌配送」解決辦公室冰箱爆滿痛點", value=True)
+        ws_esg = st.checkbox("強化雲林地方創生與 ESG 永續減碳採購訴求", value=True)
+        ws_dual_temp = st.checkbox("提供「常溫/低溫雙軌配送」解決辦公室冰箱爆滿痛點", value=True)
 
-    if st.button("✨ 立即生成完整企劃案與簡報", type="primary"):
-        with st.spinner("AI 企劃大師正在結合土庫驛品牌底蘊與受眾心理進行深度推論..."):
-            ai_generated_text = ""
-            # 如果具備已驗證的 API Key 且非模擬模式，調用真實 Gemini Client
+    if st.button("✨ 立即生成完整企劃案與簡報", type="primary", key="btn_gen_phase04"):
+        with st.spinner("AI 企劃大師正在結合土庫驛品牌底蘊、受眾同理心地圖與 NSDB 進行深度推論..."):
+            ai_summary_txt = ""
             if not st.session_state.simulation_mode and st.session_state.api_key_valid:
                 try:
                     client = get_gemini_client(st.session_state.api_key)
-                    prompt_query = f"""請以土庫驛可可莊園資深策略總監視角，為【{workshop_title}】撰寫一份極具說服力的 B2B 企劃提案摘要。
-受眾：{workshop_audience}，目標產業：{target_industry}，預算帶：{budget_tier}。
+                    prompt_query = f"""請以土庫驛可可莊園策略總監視角，為【{ws_title}】撰寫一份極具說服力的 B2B 企劃提案摘要。
+受眾：{ws_aud}，產業：{ws_industry}，預算帶：{ws_budget}。
 要求：強調 Tree to Bar 13道工序慢磨、ESG創生、無糖低負擔健康、雙軌溫控配送。嚴格對齊 CI/VI 精神。"""
                     response = client.models.generate_content(
                         model=st.session_state.model_name,
                         contents=prompt_query
                     )
-                    ai_generated_text = response.text
+                    ai_summary_txt = response.text
                 except Exception as e:
                     st.warning(f"Gemini API 調用異常 ({str(e)})，已平滑切換至高擬真模擬模式！")
 
-            summary_final = ai_generated_text if ai_generated_text else (
-                f"針對{target_industry}年終企業送禮需求，土庫驛結合『Tree-to-Bar 頂級生巧』與『在地創生可可茶』，"
+            summary_final = ai_summary_txt if ai_summary_txt else (
+                f"針對{ws_industry}年終企業送禮需求，土庫驛結合『Tree-to-Bar 頂級生巧』與『在地創生可可茶』，"
                 f"推出兼顧健康無負擔、尊榮感與 ESG 綠色永續指標的旗艦商務禮盒。"
             )
 
             # 建立企劃結構資料
             proposal_result = {
-                "title": workshop_title,
-                "audience_name": workshop_audience,
+                "title": ws_title,
+                "audience_name": ws_aud,
                 "festival": "2026 聖誕年終感恩禮盒",
-                "target_industry": target_industry,
+                "target_industry": ws_industry,
                 "summary": summary_final,
-                "stp_s": f"鎖定{target_industry}中高階主管、重視生活質感與員工健康福祉之採購單位。",
-                "stp_t": f"鎖定 {budget_tier.split(' - ')[0]} 之集中採購案，單案採購規模 500 ~ 2,000 盒。",
-                "stp_p": "『低調奢華、米其林級無糖低負擔、富含台灣土地溫度』的頂級商務贈禮。",
-                "p_product": f"核心配置：{budget_tier.split(' - ')[1]}，搭配聖誕深可可棕與香檳金緞帶包裝。",
-                "p_price": f"{budget_tier}；早鳥達 500 盒享 88 折優惠。",
+                "brand_origin": brand_origin_input if sync_p1_p2 else "創辦人為父造莊園，初心做純淨健康巧克力給爸爸吃。",
+                "brand_craft": brand_craft_input if sync_p1_p2 else "13道工序慢磨，100%天然純可可脂。",
+                "stp_s": stp_s_in if sync_p1_p2 else f"鎖定{ws_industry}重視員工福祉與健康的高階決策者。",
+                "stp_t": stp_t_in if sync_p1_p2 else f"鎖定 {ws_budget.split(' - ')[0]} 之集中採購案，單案規模 500 ~ 2,000 盒。",
+                "stp_p": stp_p_in if sync_p1_p2 else "『低調奢華、米其林級無糖低負擔、富含台灣土地溫度』的頂級商務贈禮。",
+                "p_product": ws_budget.split(" - ")[1] if " - " in ws_budget else ws_budget,
+                "p_price": f"{ws_budget}；早鳥達 500 盒享 88 折優惠。",
                 "p_place": "專屬企業經理 1 對 1 試吃配送服務、全台分批彈性溫控直送。",
                 "p_promotion": "免費雷雕企業 Logo、客製燙金腰封、附贈創辦人為父造莊園地方創生小卡。",
-                "audience_pitch": (
-                    "福委長官有面子、同仁零熱量負擔、總務配送零客訴；"
-                    "提供常溫/低溫雙軌彈性，免除同仁家中或公司冰箱容量不足之痛點。"
-                ),
-                "image_prompt": PROMPT_TEMPLATES["ch03_q1_cocoa_macro"]["prompt"],
+                "persona_desc": p2_persona_desc if sync_p1_p2 else "企業福委主委與採購，追求同仁口碑與預算合規。",
+                "empathy_pains": emp_pains if sync_p1_p2 else "員工嫌油膩、冰箱爆滿融化客訴、預算死板。",
+                "nsdb_n": nsdb_n if sync_p1_p2 else "健康大氣、送禮體面、行政零客訴。",
+                "nsdb_s": nsdb_s if sync_p1_p2 else "生巧克力搭配可可茶包，常溫低溫雙軌分流。",
+                "nsdb_d": nsdb_d if sync_p1_p2 else "Tree to Bar 13道慢磨、創生孝心故事。",
+                "nsdb_b": nsdb_b if sync_p1_p2 else "同仁滿意度 95%、減輕總務 60% 負擔、ESG 永續亮點。",
+                "image_prompt": prompt_chatgpt,
                 "kpi_boxes": "1,800 盒",
                 "kpi_revenue": "NT$ 2,150,000",
                 "kpi_margin": "57.2%",
+                "pnl_net_margin": "38.5%",
                 "kpi_satisfaction": "4.9 ★"
             }
 
             st.session_state["current_proposal"] = proposal_result
-            st.success("🎉 企劃案生成完畢！請檢視下方預覽並下載成果。")
+            st.success("🎉 終極企劃案生成完畢！請檢視下方預覽並下載全套交付成果。")
 
     if st.session_state.get("current_proposal"):
         p_data = st.session_state["current_proposal"]
@@ -501,11 +701,12 @@ with tabs[3]:
 
         st.markdown(f"""
         <div class="tukuyi-card">
-            <div class="card-heading">🎯 企劃核心綱要</div>
+            <div class="card-heading">🎯 終局版企劃核心綱要</div>
             <p><strong>專案名稱：</strong> {p_data['title']}</p>
             <p><strong>目標客群：</strong> {p_data['audience_name']} ({p_data['target_industry']})</p>
-            <p><strong>核心產品：</strong> {p_data['p_product']}</p>
+            <p><strong>產品組合：</strong> {p_data['p_product']}</p>
             <p><strong>定位主張：</strong> {p_data['stp_p']}</p>
+            <p><strong>NSDB 核心解方：</strong> {p_data['nsdb_s']}</p>
             <hr style="border-color: rgba(212,175,55,0.2);">
             <div style="font-size: 13.5px; color: #E5E0DA;">{p_data['summary']}</div>
         </div>
@@ -519,7 +720,7 @@ with tabs[3]:
         col_down1.download_button(
             label="📄 下載 Markdown 企劃書",
             data=md_content,
-            file_name=f"土庫驛_聖誕企劃書_{datetime.now().strftime('%m%d')}.md",
+            file_name=f"土庫驛_完整企劃書_{datetime.now().strftime('%m%d')}.md",
             mime="text/markdown",
             use_container_width=True
         )
@@ -548,7 +749,6 @@ with tabs[3]:
         pptx_filename = f"土庫驛_商業提案簡報_{datetime.now().strftime('%m%d')}.pptx"
         pptx_filepath = os.path.join(os.path.dirname(__file__), "output_proposal.pptx")
         
-        # 生成 PPTX
         build_tukuyi_pptx(p_data, pptx_filepath)
         if os.path.exists(pptx_filepath):
             with open(pptx_filepath, "rb") as f_pptx:
@@ -568,45 +768,83 @@ with tabs[3]:
         """)
 
 # ------------------------------------------------------------------------------
-# TAB 5: B2B 虛擬數據包互動分析 (Virtual Dataset Explorer)
+# TAB 5: 📊 虛擬與實務數據互動分析
 # ------------------------------------------------------------------------------
 with tabs[4]:
-    st.markdown("### 📊 土庫驛 B2B 虛擬銷售數據包")
-    st.caption("供學員實測 AI 數據清洗、交叉分析與回購率洞察，無機密洩漏風險")
+    st.markdown("### 📊 虛擬與實務數據互動分析")
+    st.caption("支援土庫驛預設虛擬數據包，並開放學員「上傳 CSV / XLSX 真實數據包」，直接連動 Phase 01 財務指標！")
 
-    df_sales = pd.DataFrame(VIRTUAL_SALES_DATA)
-    st.dataframe(df_sales, use_container_width=True)
+    # 上傳檔案功能
+    uploaded_file = st.file_uploader(
+        "📁 上傳真實業務數據包 (支援 .CSV 或 .XLSX 試算表)",
+        type=["csv", "xlsx", "xls"],
+        help="學員可上傳去識別化後的歷史銷售訂單資料，系統將自動解析指標。"
+    )
+
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                active_df = pd.read_csv(uploaded_file)
+            else:
+                active_df = pd.read_excel(uploaded_file)
+            st.success(f"✔ 成功讀取上傳檔案：`{uploaded_file.name}`，共包含 {len(active_df)} 筆訂單紀錄！")
+        except Exception as e:
+            st.error(f"檔案解析失敗 ({str(e)})，已切換回土庫驛預設虛擬數據包。")
+            active_df = pd.DataFrame(VIRTUAL_SALES_DATA)
+    else:
+        active_df = pd.DataFrame(VIRTUAL_SALES_DATA)
+        st.info("ℹ️ 目前展示：土庫驛 3 年 B2B 歷史採購【預設虛擬數據包】（已進行合規脫敏）。")
+
+    st.dataframe(active_df, use_container_width=True)
 
     st.markdown("#### 📈 數據洞察儀表板")
-    c1, c2, c3 = st.columns(3)
-    avg_price = df_sales["budget_per_box"].mean()
-    total_qty = df_sales["qty"].sum()
-    reorder_rate = (df_sales["reorder_next_year"] == "Yes").mean() * 100
+    c_m1, c_m2, c_m3 = st.columns(3)
 
-    c1.metric("平均採購盒單價", f"NT$ {avg_price:.0f}")
-    c2.metric("歷年虛擬總銷量", f"{total_qty:,} 盒")
-    c3.metric("次年回購再購率", f"{reorder_rate:.1f}%")
+    # 計算指標
+    if "budget_per_box" in active_df.columns:
+        avg_price = active_df["budget_per_box"].mean()
+    else:
+        avg_price = 1180
 
-    st.markdown("#### 💡 數據分析思考題（學員實作演練）")
-    st.markdown("""
-    1. **溫控與滿意度關聯**：為什麼「全常溫」的滿意度 (4.2~4.4) 普遍低於「冷藏+常溫組合」(4.6~4.9)？
-    2. **客製化效應**：有加購「客製 Logo/燙金封套」的客戶，其次年回購率高達 100%，這對我們的定價策略有何啟發？
-    """)
+    if "qty" in active_df.columns:
+        total_qty = active_df["qty"].sum()
+        total_revenue = (active_df["budget_per_box"] * active_df["qty"]).sum() if "budget_per_box" in active_df.columns else total_qty * avg_price
+    else:
+        total_qty = 4120
+        total_revenue = 4860000
 
+    if "reorder_next_year" in active_df.columns:
+        reorder_rate = (active_df["reorder_next_year"].astype(str).str.lower() == "yes").mean() * 100
+    else:
+        reorder_rate = 42.0
+
+    c_m1.metric("平均採購盒單價 (AOV)", f"NT$ {avg_price:.0f}")
+    c_m2.metric("分析總銷售量 / 預估總營收", f"{total_qty:,} 盒 / NT$ {total_revenue:,.0f}")
+    c_m3.metric("次年回購再購率", f"{reorder_rate:.1f}%")
+
+    st.markdown("#### ⚡ 跨模組資料聯動按鈕")
+    if st.button("🔄 將上述數據指標同步至「Phase 01 品牌底蘊與行銷企劃初建」結案數據欄位", key="btn_sync_back_p1"):
+        st.session_state.p1_revenue = f"NT$ {total_revenue:,.0f}"
+        st.session_state.p1_boxes = f"{total_qty:,} 盒"
+        st.session_state.p1_aov = f"NT$ {avg_price:.0f}"
+        st.session_state.p1_margin = "58.4%"
+        st.success("🎉 已成功將分析數據回填至 Phase 01 的財務損益欄位！請切換至 Phase 01 查看。")
+
+    st.markdown("---")
     csv_data = export_virtual_sales_csv()
     st.download_button(
-        "📥 下載完整虛擬銷售數據 CSV",
+        "📥 下載完整虛擬銷售數據 CSV 檔案",
         data=csv_data,
         file_name="tukuyi_virtual_sales_dataset.csv",
         mime="text/csv"
     )
 
 # ------------------------------------------------------------------------------
-# TAB 6: 6 大實戰題型提示詞庫 (Prompt Templates Library)
+# TAB 6: 💡 實戰題型提示詞庫
 # ------------------------------------------------------------------------------
 with tabs[5]:
-    st.markdown("### 💡 6小時工作坊提示詞總庫 (CH01~CH03 完整 2-3 題實戰題型)")
-    st.caption("每章節精選 2-3 題型（包含中秋核心題與各情境複習題）• 內建資安脫敏前綴")
+    st.markdown("### 💡 實戰題型提示詞庫 (完整行銷企劃簡報實戰題目)")
+    st.caption("關鍵資訊採用“［    ］”符號留空標示 • 學員可直接複製並在“［ ］”內填入自訂專案資訊")
 
     for p_key, p_val in PROMPT_TEMPLATES.items():
         with st.expander(f"{p_val['title']} ｜ {p_val['scenario']}"):

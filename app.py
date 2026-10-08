@@ -2,7 +2,7 @@
 土庫驛可可莊園 (Tukuyi Cocoa) - AI 行銷企劃大師 Web App (v2.1 Enterprise)
 ==============================================================================
 所有權人 / 著作權人：BOSS、院長、Eric 潘穩安博士 (Dr. Eric Wen-An Pan)
-核心架構：BYOK (Google Gemini API) 零成本部署、防篡改資安機制、動態模型容錯、
+核心架構：伺服器端 BYOK (Google Gemini API)、提案雜湊校驗、動態模型容錯、
 Phase 01~04 全流程開放式引導填答、STP+4P+P&L、Persona+同理心+NSDB、
 ChatGPT & Gemini 通用生圖提示詞、真實數據 CSV/XLSX 上傳與多格式簡報匯出。
 ==============================================================================
@@ -96,7 +96,7 @@ def get_gemini_client(api_key: str):
             return None
         return genai.Client(api_key=clean_key)
     except Exception as e:
-        st.session_state.api_error = f"GenAI SDK 初始化失敗: {str(e)}"
+        st.session_state.api_error = "無法初始化 Google GenAI SDK，請確認金鑰與執行環境。原始錯誤內容不顯示。"
         return None
 
 def validate_and_discover_gemini(api_key: str) -> bool:
@@ -141,7 +141,7 @@ def validate_and_discover_gemini(api_key: str) -> bool:
             st.session_state.api_error = None
             return True
         except Exception as e:
-            st.session_state.api_error = str(e)
+            st.session_state.api_error = "金鑰驗證失敗，請檢查金鑰、權限、配額與模型可用性。原始錯誤內容不顯示。"
             continue
 
     st.session_state.api_key_valid = False
@@ -162,18 +162,22 @@ with st.sidebar:
         <strong>所有權人 / 著作權人：</strong><br>
         BOSS / 院長 / Eric 潘穩安博士<br><br>
         <strong>資安防護規範：</strong><br>
-        本系統僅授權土庫驛企業內訓使用。採用純客戶端 BYOK 隔離架構，API Key 絕不落地存檔，禁止任何未經授權之第三人盜用、篡改或轉售。
+        本系統僅授權土庫驛企業內訓使用。採用伺服器端 BYOK，金鑰會經過 App 伺服器；請先閱讀下方資料使用須知。禁止任何未經授權之第三人盜用、篡改或轉售。
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("#### 🔑 AI 引擎設定 (BYOK 零成本)")
+    st.markdown("#### 🔑 AI 引擎設定 (伺服器端 BYOK)")
 
+    st.caption("金鑰會送至本 App 的 Streamlit 伺服器，保存在該會話的伺服器端記憶體，再由 Python 呼叫 Google；不是 Browser-only BYOK。請只在信任的部署輸入專用、受限制的 Key，不要貼進提案、人物姓名或上傳檔案。")
+    st.caption("輸入或更換金鑰會自動驗證；驗證與模型備援可能產生多次 API 呼叫，消耗您的配額或費用。免費額度與資料使用條款依 Google 當時政策及帳戶而定。")
+    with st.expander("金鑰與資料使用須知"):
+        st.markdown("程式未主動將金鑰欄位寫入提案匯出；這不保證代管平台、SDK、代理或日誌系統不留存。清空金鑰欄位可移除 App 的目前金鑰值，但不保證記憶體副本立即抹除；疑似外洩請至 Google 撤銷金鑰。 模擬模式不呼叫生成 API，但已有金鑰不會因切換模式而自動清除；輸入新金鑰仍會驗證。")
     input_key = st.text_input(
         "Google Gemini API Key",
         value=st.session_state.api_key,
         type="password",
-        help="依循 BYOK 原則，至 Google AI Studio 免費申請 API Key（免費額度充裕，企業 0 元維運成本）。"
+        help="金鑰會送至本 App 的 Streamlit 伺服器，保存在該會話的伺服器端記憶體，再由 Python 呼叫 Google；不是 Browser-only BYOK。請只在信任的部署輸入專用、受限制的 Key，不要貼進提案、人物姓名或上傳檔案。"
     )
 
     if input_key != st.session_state.api_key:
@@ -200,14 +204,14 @@ with st.sidebar:
     else:
         st.info("ℹ️ 目前運行於【高擬真模擬模式】，完全無需 Key 亦可完整演練並產出全部文件！")
 
-    with st.expander("❓ 新手如何取得 0 元免費 Google API Key？"):
+    with st.expander("❓ 如何取得 Google API Key 與確認費用？"):
         st.markdown("""
         **小學生也能懂的 4 個步驟：**
         1. 打開瀏覽器前往 [Google AI Studio](https://aistudio.google.com/)。
         2. 用個人常用的 Google 帳號點擊登入。
         3. 點選畫面左邊或右上方的 **Get API key** -> 點 **Create API key**。
         4. 把那一串英文字母金鑰複製下來，貼回左邊這格輸入框就好囉！
-        *(完全免費，每分鐘有 15 次調用額度，不用綁信用卡)*
+        *(免費配額、可用模型與費用依 Google 帳戶及最新政策而定；請先確認資料使用條款。)*
         """)
 
     st.markdown("---")
@@ -648,7 +652,7 @@ with tabs[3]:
                     )
                     ai_summary_txt = response.text
                 except Exception as e:
-                    st.warning(f"Gemini API 調用異常 ({str(e)})，已平滑切換至高擬真模擬模式！")
+                    st.warning("Gemini API 調用失敗，本次改用模擬摘要；請檢查權限、配額與網路。原始錯誤內容不顯示。")
 
             summary_final = ai_summary_txt if ai_summary_txt else (
                 f"針對{ws_industry}年終企業送禮需求，土庫驛結合『Tree-to-Bar 頂級生巧』與『在地創生可可茶』，"
@@ -747,20 +751,21 @@ with tabs[3]:
 
         # 4. 原生 PPTX 簡報
         pptx_filename = f"土庫驛_商業提案簡報_{datetime.now().strftime('%m%d')}.pptx"
-        pptx_filepath = os.path.join(os.path.dirname(__file__), "output_proposal.pptx")
-        
-        build_tukuyi_pptx(p_data, pptx_filepath)
-        if os.path.exists(pptx_filepath):
-            with open(pptx_filepath, "rb") as f_pptx:
+        # 每次渲染使用獨立記憶體緩衝區，避免跨會話共用伺服器檔案。
+        pptx_buffer = io.BytesIO()
+        try:
+            if build_tukuyi_pptx(p_data, pptx_buffer):
                 col_down4.download_button(
                     label="📊 下載 16:9 PPTX 簡報",
-                    data=f_pptx.read(),
+                    data=pptx_buffer.getvalue(),
                     file_name=pptx_filename,
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     use_container_width=True
                 )
-        else:
-            col_down4.info("（PPTX 生成腳本就緒）")
+            else:
+                col_down4.info("（PPTX 生成腳本就緒）")
+        except Exception:
+            st.warning("PPTX 產生失敗，請稍後重試；原始錯誤內容不顯示。")
 
         st.markdown("""
         > 💡 **Google 簡報 (Google Slides) 無縫開啟小秘技**：  
@@ -789,7 +794,7 @@ with tabs[4]:
                 active_df = pd.read_excel(uploaded_file)
             st.success(f"✔ 成功讀取上傳檔案：`{uploaded_file.name}`，共包含 {len(active_df)} 筆訂單紀錄！")
         except Exception as e:
-            st.error(f"檔案解析失敗 ({str(e)})，已切換回土庫驛預設虛擬數據包。")
+            st.error("檔案解析失敗，請檢查檔案格式；已切換回預設虛擬數據包。原始錯誤內容不顯示。")
             active_df = pd.DataFrame(VIRTUAL_SALES_DATA)
     else:
         active_df = pd.DataFrame(VIRTUAL_SALES_DATA)

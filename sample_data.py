@@ -13,11 +13,11 @@ SYSTEM_OWNERSHIP = {
     "owner": "BOSS / 院長 / Eric 潘穩安博士 (Dr. Eric Wen-An Pan)",
     "app_title": "AI 行銷企劃大師 Web App (Tukuyi Marketing AI Suite)",
     "version": "2.1.0-enterprise",
-    "deployment_mode": "BYOK (Bring Your Own Key) - Zero Cloud Maintenance Cost",
+    "deployment_mode": "Server-side BYOK (Bring Your Own Key)",
     "security_policy": (
         "1. 本系統所有權與智財權歸屬 Eric 潘穩安博士所有。\n"
         "2. 嚴格保護商業機密，禁止任何未經授權之第三人盜用、篡改或轉售。\n"
-        "3. API Key 僅留存於當前使用者瀏覽器 Session，伺服器不落地儲存，確保 100% 隱私資安。\n"
+        "3. API Key 經 Streamlit 伺服器會話記憶體由 Python 呼叫 Google；非純前端隔離，代管日誌與留存須另行查核。\n"
         "4. 所有生成企劃案均包含 SHA-256 數位指紋防篡改追蹤。"
     )
 }

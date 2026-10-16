@@ -1,4 +1,15 @@
-# BYOK Security & Privacy QA — 2026-10-08
+# BYOK Security & Privacy QA — 2026-10-08（附 2026-10-16 路由更新）
+
+## 2026-10-16 補充：本草稿目前行為
+
+以下原始 2026-10-08 章節保留作為固定基準證據，不代表本草稿目前仍有生成用 PING。
+
+- 文字模型預設改為 `gemini-3.8-flash`；支援 `gemini-3.5-flash-lite`、帳號可用的 `gemini-2.5-flash`。只允許集中穩定模型清單，兼容 SDK `supported_actions` 與舊 metadata 欄位；明示非 `generateContent` 的模型不列入。
+- 金鑰檢查只呼叫模型清單；空清單、權限/網路錯誤都不生成 PING，不再四模型試探。R4 的生成備援風險已移除，但正式生成仍可能消耗配額或費用。
+- 停用模型舊 session 會清除驗證狀態並回到模擬模式；清空 Key 的舊 P3 widget 生命週期待辦不在本次修正範圍，亦不宣稱安全抹除記憶體。
+- 原有伺服器端 BYOK、固定安全錯誤、PPTX 獨立 buffer 與提案 schema 均保留；沒有更動 requirements、正式部署、資料庫或 secrets。
+- 新增 `test_model_policy.py`，先在原草稿重現失敗，再修正並與完整 `pytest` 套件一起驗證。真實 BYOK、帳號配額、正式部署 SHA、HTML escaping、CORS/XSRF 與主機日誌等人工 gate 仍未通過。
+- 官方模型狀態查讀日 2026-10-16；參考 README 的官方生命週期與發布紀錄。3.8 Flash 為 2026-09-02 穩定版、3.5 Flash Lite 為 2026-07-21 穩定版，不是任意採用最新主版本。
 
 ## 固定版本與路徑：土庫驛 AI 行銷企劃工作台
 

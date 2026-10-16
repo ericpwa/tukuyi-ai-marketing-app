@@ -42,7 +42,8 @@ class ByokSecurityTests(unittest.TestCase):
             error=self.messages.append, warning=self.messages.append)
         self.models = Mock()
         self.models.generate_content.return_value = types.SimpleNamespace(text='SAFE_REPLY')
-        self.models.list.return_value = []
+        self.models.list.return_value = [types.SimpleNamespace(name='models/gemini-3.8-flash',
+                                       supported_actions=['generateContent'])]
         genai = types.ModuleType('google.genai')
         genai.Client = Mock(return_value=types.SimpleNamespace(models=self.models))
         genai.types = types.SimpleNamespace(GenerateContentConfig=lambda **kw: kw)
@@ -52,7 +53,9 @@ class ByokSecurityTests(unittest.TestCase):
         self.imports = patch.dict(sys.modules, {'google': google, 'google.genai': genai})
         self.imports.start()
         self.addCleanup(self.imports.stop)
-        self.ns = {'st': self.st, 'DEFAULT_MODELS': ['gemini-1.5-flash', 'gemini-2.0-flash']}
+        defaults = next(n for n in TREE.body if isinstance(n, ast.Assign)
+                        and any(isinstance(t, ast.Name) and t.id == 'DEFAULT_MODELS' for t in n.targets))
+        self.ns = {'st': self.st, 'DEFAULT_MODELS': ast.literal_eval(defaults.value)}
         execute([n for n in TREE.body if isinstance(n, ast.FunctionDef)], self.ns)
         self.validate = self.ns['validate_and_discover_gemini' if TUKUYI else 'validate_api_key']
 
@@ -74,7 +77,7 @@ class ByokSecurityTests(unittest.TestCase):
         self.assertTrue(self.validate('  "' + CANARY + '"  '))
         self.genai.Client.assert_called_once_with(api_key=CANARY)
         self.assertIsNone(self.state.api_error)
-        self.assertEqual(self.models.generate_content.call_args.kwargs['contents'], 'PING')
+        self.models.generate_content.assert_not_called()
 
     def test_blank_key_does_not_initialize_sdk(self):
         self.assertFalse(self.validate('   '))
@@ -117,7 +120,7 @@ class ByokSecurityTests(unittest.TestCase):
 
     @unittest.skipUnless(TUKUYI, 'Tukuyi discovery only')
     def test_discovery_success_avoids_ping(self):
-        self.models.list.return_value = [types.SimpleNamespace(name='models/gemini-2.0-flash',
+        self.models.list.return_value = [types.SimpleNamespace(name='models/gemini-3.8-flash',
                                           supported_generation_methods=['generateContent'])]
         self.assertTrue(self.validate(CANARY))
         self.models.generate_content.assert_not_called()

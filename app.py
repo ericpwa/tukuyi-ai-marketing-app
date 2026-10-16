@@ -57,16 +57,15 @@ load_css("style.css")
 # Session State 初始化與 Gemini 客戶端架構
 # ==============================================================================
 DEFAULT_MODELS = [
-    "gemini-1.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash-8b"
+    "gemini-3.8-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-2.5-flash"
 ]
 
 session_defaults = {
     "api_key": "",
     "api_key_valid": False,
-    "model_name": "gemini-1.5-flash",
+    "model_name": DEFAULT_MODELS[0],
     "available_models": DEFAULT_MODELS,
     "simulation_mode": True,
     "api_error": None,
@@ -85,6 +84,14 @@ for k, v in session_defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+# Existing sessions must not retain authorization for a retired model.
+if (st.session_state.model_name not in DEFAULT_MODELS or
+        any(model not in DEFAULT_MODELS for model in st.session_state.available_models)):
+    st.session_state.model_name = DEFAULT_MODELS[0]
+    st.session_state.available_models = list(DEFAULT_MODELS)
+    st.session_state.api_key_valid = False
+    st.session_state.simulation_mode = True
+
 def get_gemini_client(api_key: str):
     """安全清理並初始化 Google GenAI Client"""
     if not api_key:
@@ -100,7 +107,8 @@ def get_gemini_client(api_key: str):
         return None
 
 def validate_and_discover_gemini(api_key: str) -> bool:
-    """透明檢驗 API Key 並動態探索可用模型 (避免 404 NOT_FOUND 錯誤)"""
+    """只讀帳號模型 metadata；不以生成 PING 驗證金鑰或宣稱生成可用。"""
+    st.session_state.api_key_valid = False
     clean_key = api_key.strip().strip("'").strip('"').strip('`')
     if not clean_key:
         st.session_state.api_error = "金鑰不可為空白"
@@ -113,13 +121,15 @@ def validate_and_discover_gemini(api_key: str) -> bool:
 
     try:
         raw_models = list(client.models.list())
-        discovered = []
+        eligible = set()
         for m in raw_models:
-            name = getattr(m, "name", "").replace("models/", "")
-            methods = getattr(m, "supported_generation_methods", [])
-            if "generateContent" in methods or "gemini" in name:
-                if name in DEFAULT_MODELS or "flash" in name or "pro" in name:
-                    discovered.append(name)
+            name = (getattr(m, "name", None) or "").removeprefix("models/")
+            methods = getattr(m, "supported_actions", None)
+            if methods is None:
+                methods = getattr(m, "supported_generation_methods", None)
+            if name in DEFAULT_MODELS and (methods is None or "generateContent" in methods):
+                eligible.add(name)
+        discovered = [model for model in DEFAULT_MODELS if model in eligible]
         if discovered:
             st.session_state.available_models = discovered
             if st.session_state.model_name not in discovered:
@@ -128,22 +138,10 @@ def validate_and_discover_gemini(api_key: str) -> bool:
             st.session_state.api_error = None
             return True
     except Exception:
-        pass
+        st.session_state.api_error = "無法讀取模型清單，請檢查金鑰、權限與網路。未執行內容生成；原始錯誤內容不顯示。"
+        return False
 
-    for test_model in DEFAULT_MODELS:
-        try:
-            client.models.generate_content(
-                model=test_model,
-                contents="PING"
-            )
-            st.session_state.model_name = test_model
-            st.session_state.api_key_valid = True
-            st.session_state.api_error = None
-            return True
-        except Exception as e:
-            st.session_state.api_error = "金鑰驗證失敗，請檢查金鑰、權限、配額與模型可用性。原始錯誤內容不顯示。"
-            continue
-
+    st.session_state.api_error = "帳號清單未包含本工具支援的穩定模型。未執行內容生成，請確認模型存取權限。"
     st.session_state.api_key_valid = False
     return False
 
@@ -170,7 +168,7 @@ with st.sidebar:
     st.markdown("#### 🔑 AI 引擎設定 (伺服器端 BYOK)")
 
     st.caption("金鑰會送至本 App 的 Streamlit 伺服器，保存在該會話的伺服器端記憶體，再由 Python 呼叫 Google；不是 Browser-only BYOK。請只在信任的部署輸入專用、受限制的 Key，不要貼進提案、人物姓名或上傳檔案。")
-    st.caption("輸入或更換金鑰會自動驗證；驗證與模型備援可能產生多次 API 呼叫，消耗您的配額或費用。免費額度與資料使用條款依 Google 當時政策及帳戶而定。")
+    st.caption("輸入或更換金鑰只查詢模型清單，不發送生成用 PING；清單可讀不代表實際生成或配額已驗證。按下生成才會傳送提案內容，費用與資料使用條款依 Google 當時政策及帳戶而定。")
     with st.expander("金鑰與資料使用須知"):
         st.markdown("程式未主動將金鑰欄位寫入提案匯出；這不保證代管平台、SDK、代理或日誌系統不留存。清空金鑰欄位可移除 App 的目前金鑰值，但不保證記憶體副本立即抹除；疑似外洩請至 Google 撤銷金鑰。 模擬模式不呼叫生成 API，但已有金鑰不會因切換模式而自動清除；輸入新金鑰仍會驗證。")
     input_key = st.text_input(
@@ -186,7 +184,7 @@ with st.sidebar:
             with st.spinner("驗證金鑰與探索模型相容性中..."):
                 if validate_and_discover_gemini(input_key):
                     st.session_state.simulation_mode = False
-                    st.success(f"✔ 驗證成功！已掛載模型：{st.session_state.model_name}")
+                    st.success(f"✔ 模型清單可讀：{st.session_state.model_name}；實際生成與配額尚未驗證。")
                 else:
                     st.session_state.simulation_mode = True
                     st.warning(f"⚠️ 金鑰驗證未通過，已自動切換回高擬真模擬模式。\n詳細原因：{st.session_state.api_error}")
